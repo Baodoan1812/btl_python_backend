@@ -42,7 +42,14 @@ INSTALLED_APPS = [
     'chat',
     'rest_framework_simplejwt',
     'corsheaders',
+    "channels",
 ]
+ASGI_APPLICATION = "chat_realtime.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    },
+}
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
