@@ -7,6 +7,10 @@ from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
+from rest_framework.views import APIView
+from django.contrib.auth import get_user_model
+from .services import call_ai_api
+User = get_user_model()
 
 # Chỉ user đăng nhập mới truy cập được
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -50,6 +54,23 @@ class ConversationViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(conversation)
         return Response(serializer.data)
 
+class StartChatbotConversation(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        chatbot, _ = User.objects.get_or_create(username="Chatbot")
+
+        # Tìm hoặc tạo conversation giữa user và chatbot
+        conv = Conversation.objects.filter(
+            (Q(my_id=user) & Q(other_id=chatbot)) |
+            (Q(my_id=chatbot) & Q(other_id=user))
+        ).first()
+
+        if not conv:
+            conv = Conversation.objects.create(my_id=user, other_id=chatbot)
+
+        return Response({"conversation_id": conv.id})
 
 class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
@@ -70,7 +91,38 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Message.objects.none()  # mặc định trả về rỗng nếu không truyền conversation_id
 
     def perform_create(self, serializer):
-        """
-        Khi tạo message, set sender là user hiện tại.
-        """
-        serializer.save(sender=self.request.user)
+        message = serializer.save(sender=self.request.user)
+        conversation = message.conversation
+
+        # Lấy chatbot
+        chatbot = User.objects.get(username="Chatbot")
+        print('chatbot:', chatbot)
+        # Nếu conversation có chatbot và sender không phải chatbot
+        if chatbot in [conversation.my_id, conversation.other_id] and message.sender != chatbot:
+            bot_reply = call_ai_api(message.content)
+            Message.objects.create(
+                conversation=conversation,
+                sender=chatbot,
+                content=bot_reply
+            )
+class ChatbotReplyView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        user_message = request.data.get("message")
+        chatbot_user, _ = User.objects.get_or_create(username="Chatbot", defaults={"password": "123456"})
+        # lưu tin nhắn user
+        convo, _ = Conversation.objects.get_or_create(
+            my_id=user,
+            other_id=chatbot_user,  # chatbot
+        )
+        Message.objects.create(conversation=convo, sender=user, content=user_message)
+
+        # gọi AI
+        ai_reply = call_ai_api(user_message)
+
+        # lưu reply chatbot
+        Message.objects.create(conversation=convo, sender=chatbot_user, content=ai_reply)
+
+        return Response({"reply": ai_reply})
