@@ -1,0 +1,18 @@
+services:
+  backend:
+    container_name: drf-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./db.sqlite3:/app/db.sqlite3
+      - ./staticfiles:/app/staticfiles # Mount thư mục staticfiles
+    environment:
+      - DEBUG=True
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             daphne -b 0.0.0.0 -p 8000 chat_realtime.asgi:application"
