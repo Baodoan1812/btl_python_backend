@@ -9,7 +9,7 @@ def call_ai_api(user_message: str) -> str:
     response = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={
-            "Authorization": "Bearer {GROQ_API_KEY}",
+            "Authorization": "Bearer " + GROQ_API_KEY,
             "Content-Type": "application/json"
         },
         json={
@@ -22,7 +22,7 @@ def call_ai_api(user_message: str) -> str:
     )
     data = response.json()
     print("DEBUG Groq response:", data)
-
+    print("DEBUG GROQ_API_KEY:", GROQ_API_KEY)
     if "choices" in data:
         return data["choices"][0]["message"]["content"]
     elif "error" in data:

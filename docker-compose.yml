@@ -10,6 +10,8 @@ services:
       - .:/app
       - ./db.sqlite3:/app/db.sqlite3
       - ./staticfiles:/app/staticfiles # Mount thư mục staticfiles
+    env_file:
+      - .env # Nạp biến môi trường từ tệp .env
     environment:
       - DEBUG=True
     command: >
